@@ -654,11 +654,14 @@ class UbloxMessage(object):
         if messageType == 'CFG-PRT':
             print('    Port ID: {}'.format(data[1]['PortID']))
             print('    TX ready: 0x{:02x}'.format(data[1]['TxReady']))
-            print('    Mode: 0x{:04x}'.format(data[1]['Mode']))
-            print('    Baud rate: {}'.format(data[1]['Baudrate']))
+            if data[1]['PortID'] in [0, 1, 4]:
+                print('    Mode: 0x{:04x}'.format(data[1]['Mode']))
+            if data[1]['PortID'] == 1:
+                print('    Baud rate: {}'.format(data[1]['Baudrate']))
             print('    In proto mask:  0x{:02x}'.format(data[1]['In_proto_mask']))
             print('    Out proto mask: 0x{:02x}'.format(data[1]['Out_proto_mask']))
-            print('    Flags: 0x{:02x}'.format(data[1]['Flags']))
+            if data[1]['PortID'] in [0, 1, 4]:
+                print('    Flags: 0x{:02x}'.format(data[1]['Flags']))
         elif messageType == 'MON-VER':
             print('    Software version: {}'.format(data[0]['SWVersion'].decode('ascii').strip()))
             print('    Hardware version: {}'.format(data[0]['HWVersion'].decode('ascii').strip()))
