@@ -1,5 +1,6 @@
 import struct
 import logging
+import datetime
 
 SYNC1=0xb5
 SYNC2=0x62
@@ -113,8 +114,10 @@ CLIDPAIR = {
     "RXM-EPH" : (0x02, 0x31),
     "RXM-POSREQ" : (0x02, 0x40),
     "RXM-RAW" : (0x02, 0x10),
+    "RXM-RAWX" : (0x02, 0x15),
     "RXM-RTCM" : (0x02, 0x32),
     "RXM-SFRB" : (0x02, 0x11),
+    "RXM-SFRBX" : (0x02, 0x13),
     "RXM-SVSI" : (0x02, 0x20),
     "SEC-SIGN" : (0x27, 0x01),
     "SEC-UNIQID" : (0x27, 0x03),
@@ -220,10 +223,14 @@ MSGFMT = {
     # ('RXM-RAW', [{'Week': 1575, 'ITOW': 475184470, 'NSV': 0}])
     ("RXM-RAW", None) :
         [8, "<ihBx", ["ITOW", "Week", "NSV"], 24, "<ddfBbbB", ["CPMes", "PRMes", "DOMes", "SV", "MesQI", "CNO", "LLI"]],
+    ("RXM-RAWX", None) :
+        [16, "<dHbBBxxx", ["RCVTOW", "Week", "LeapS", "NumMeas", "RecStat"], 32, "<ddfBBxBHBBBBBx", ["PRMes", "CPMes", "DOMes", "GNSSID", "SVID", "FreqId", "LockTime", "CNO", "PRStdev", "CPStdev", "DOStdev", "TrkStat"]],
     ("RXM-SVSI", None) :
         [8, "<ihBB", ["ITOW", "Week", "NumVis", "NumSv"], 6, "<BBhbB", ["SVID", "SVFlag", "Azim", "Elev", "Age"]],
     ("RXM-SFRB", 42) :
         ["<BBiiiiiiiiii", ["CHN", "SVID", "DWRD0", "DWRD1", "DWRD2", "DWRD3", "DWRD4", "DWRD5", "DWRD6", "DWRD7", "DWRD8", "DWRD9"]],
+    ("RXM-SFRBX", None) :
+        [8, "<BBxBBBBx", ["GNSSID", "SVID", "FreqId", "NumWords", "CHN", "Version"], 4, "<I", ["DWRD"]],
     ("RXM-ALM", 1) :
         ["<B", ["SVID"]],
     ("RXM-ALM", 8)  :
@@ -264,6 +271,8 @@ MSGFMT = {
         ["<HHxxHHH32s32s32s", ["VendorID", "ProductID", "reserved2", "PowerConsumption", "Flags", "VendorString", "ProductString", "SerialNumber"]],
     ("CFG-MSG", 2) :
         ["<BB", ["msgClass", "msgId"]],
+    ("CFG-MSG", 3) :
+        ["<BBB", ["msgClass", "msgId", "rate"]],
     ("CFG-MSG", None) :
         [2, "<BB", ["msgClass", "msgId"], 1, "B", ['rate']],
     ("CFG-NMEA", 4) :
@@ -454,6 +463,35 @@ class UbloxMessage(object):
         pass
 
     @staticmethod
+    def getMessageFromBuffer(buf, start=0):
+        while start < len(buf) - 1:
+            index = buf[start:].find(b'\xb5\x62')
+            if index >= 0:
+                start += index
+                result = UbloxMessage.validate(buf[start:])
+                if result['valid']:
+                    msgClass = result['class']
+                    msgId = result['id']
+                    length = result['length']
+                    rawLength = length + 8
+                    rawMessage = buf[start:start+rawLength]
+                    start += rawLength
+
+                    return rawMessage, msgClass, msgId, length, start
+                else:
+                    # Not enough data
+                    if not result['lengthMatch']:
+                        return None, None, None, None, start
+                    # Invalid message, move past sync bytes and continue search
+                    elif not result['checksum']:
+                        start += 2
+            # No sync bytes found, move start to the last byte
+            else:
+                start = len(buf) - 1
+
+        return None, None, None, None, start
+
+    @staticmethod
     def parse(message):
         message = bytearray(message)
 
@@ -483,10 +521,12 @@ class UbloxMessage(object):
             logging.warning('Zero length packet of class {}, id {}!'.format(hex(msgClass), hex(msgId)))
         else:
             # Decode UBX message
-            msgFormat, msgData = UbloxMessage.decode(msgClass, msgId, length, message[6:length+6])
+            try:
+                msgFormat, msgData = UbloxMessage.decode(msgClass, msgId, length, message[6:length+6])
+            except ValueError:
+                return None, None, remainder
 
         return msgFormat, msgData, remainder
-
 
     @staticmethod
     def validate(message):
@@ -645,7 +685,15 @@ class UbloxMessage(object):
         return mask
 
     @staticmethod
-    def printMessage(messageType, data, header=None):
+    def printMessage(messageType, data, messageTime=None, header=None, fmt='long'):
+        if fmt == 'short':
+            output = ''
+            if messageTime is not None:
+                output += '[{}] '.format(datetime.datetime.fromtimestamp(messageTime).strftime('%Y-%m-%d %H:%M:%S.%f'))
+            output += messageType
+            print(output)
+            return
+
         if header is not None:
             print('\n{}{}:'.format(header, messageType))
         else:    

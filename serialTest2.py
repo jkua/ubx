@@ -27,16 +27,18 @@ if __name__=='__main__':
     ser = serial.Serial(args.device, 115200, timeout=1)
 
     with serial.threaded.ReaderThread(ser, UbloxReader) as ublox:
-        # while True:
-        #     try:
-        #         msgFormat, msgData = ublox.poll(ser, 'MON-VER')
-        #         UbloxMessage.printMessage(msgFormat, msgData, header=datetime.datetime.now().strftime('[%Y-%m-%d %H:%M:%S.%f]\n'))
-        #         time.sleep(0.1)
-        #     except KeyboardInterrupt:
-        #         break
-
+        ublox.printMessageFlag = True
+        
         msgFormat, msgData = ublox.poll(ser, 'CFG-PRT')
         UbloxMessage.printMessage(msgFormat, msgData)
 
         ublox.sendConfig(ser, msgFormat, 20, msgData)
+
+        ublox.saveStreamFlag = True
+        while 1:
+            try:
+                time.sleep(1)
+            except KeyboardInterrupt:
+                break
+
 
