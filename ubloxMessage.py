@@ -113,6 +113,7 @@ CLIDPAIR = {
     "RXM-ALM" : (0x02, 0x30),
     "RXM-EPH" : (0x02, 0x31),
     "RXM-POSREQ" : (0x02, 0x40),
+    "RXM-PMREQ" : (0x02, 0x41),
     "RXM-RAW" : (0x02, 0x10),
     "RXM-RAWX" : (0x02, 0x15),
     "RXM-RTCM" : (0x02, 0x32),
@@ -245,6 +246,10 @@ MSGFMT = {
         ["<" + "I"*26, ["SVID", "HOW", "SF1D0", "SF1D1", "SF1D2", "SF1D3", "SF1D4",
             "SF1D5", "SF1D6", "SF1D7", "SF2D0", "SF2D1", "SF2D2", "SF2D3", "SF2D4",
             "SF2D5", "SF2D6", "SF2D7", "SF3D0", "SF3D1", "SF3D2", "SF3D3", "SF3D4", "SF3D5", "SF3D6", "SF3D7"]],
+    ("RXM-PMREQ", 8) :
+        ["<II", ["duration", "flags"]],
+    ("RXM-PMREQ", 16) :
+        ["<BxxxIII", ["version", "duration", "flags", "wakeupSources"]],
     ("INF-ERROR", None) :
         [0, "", [], 1, "c", ["Char"]],
     ("INF-WARNING", None) :
