@@ -78,6 +78,8 @@ def messageHandler(msgTime, msgFormat, msgData, rawMessage):
             dataCaptured = 0
             dataRateStartTime = curTime
 
+    logging.info(msgFormat)
+
     if msgFormat == 'NAV-PVT':
         epoch = msgData[0]['ITOW']/1e3
         
@@ -133,6 +135,7 @@ def messageHandler(msgTime, msgFormat, msgData, rawMessage):
         if dataRate is not None:
             displayString += ' | Data rate: {:.1f} Kbps'.format(dataRate/1000)
         print(displayString)
+        logging.info(displayString)
     # if msgFormat in ['NAV-PVT', 'NAV-STATUS', 'NAV-SVINFO']:
     #     print(msgData)
 
@@ -143,19 +146,20 @@ if __name__=='__main__':
     parser.add_argument('--output', '-o', help='Specify output path')
     parser.add_argument('--configure', '-c', action='store_true', help='Configure the receiver')
     parser.add_argument('--interval', '-i', choices=['daily', 'hourly'], default=None, help='Specify file interval (daily, hourly)')
-    parser.add_argument('--verbose', '-v', action='store_true')
+    parser.add_argument('--logFile', '-l', help='Path to log file')
     parser.add_argument('--debug', action='store_true')
     args = parser.parse_args()
 
     if args.debug:
-        logging.basicConfig(level=logging.DEBUG)
-    elif args.verbose:
-        logging.basicConfig(level=logging.INFO)
+        logLevel = logging.DEBUG
     else:
-        logging.basicConfig(level=logging.ERROR)
+        logLevel = logging.INFO
+
+    logging.basicConfig(filename=args.logFile, level=logLevel, format='%(asctime)s %(message)s')
+
+    logging.info('***** Session start *****')
 
     ser = serial.Serial(args.device, 921600, timeout=1)
-
     with serial.threaded.ReaderThread(ser, UbloxReader) as ublox:
         if args.output is not None:
             ublox.saveFileName = os.path.join(args.output, 'ublox')
