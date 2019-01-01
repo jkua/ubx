@@ -24,67 +24,68 @@ class UbloxReader(serial.threaded.Protocol):
         self.saveFileName = 'ublox'
         self.userHandler = None
         self.lastFlushTime = None
+        self.logger = logging
 
     # Required for serial.threaded.Protocol
     def connection_made(self, transport):
         super(UbloxReader, self).connection_made(transport)
-        logging.debug('Serial port opened\n')
+        self.logger.debug('Serial port opened\n')
 
     # Required for serial.threaded.Protocol
     def data_received(self, data):
-        logging.debug('Received {} bytes'.format(len(data)))
+        self.logger.debug('Received {} bytes'.format(len(data)))
         self.buffer = self.buffer + data
-        logging.debug('Buffer size: {} bytes'.format(len(self.buffer)))
+        self.logger.debug('Buffer size: {} bytes'.format(len(self.buffer)))
         self.parse()
 
     # Required for serial.threaded.Protocol
     def connection_lost(self, exc):
         if exc:
-            print('*** EXCEPTION *** {}'.format(exc))
-        logging.debug('Serial port closed.')
+            self.logger.error('*** EXCEPTION *** {}'.format(exc))
+        self.logger.debug('Serial port closed.')
         if self.saveFile is not None:
             self.saveFile.close()
             self.saveFile = None
-            logging.debug('Save file closed.')
+            self.logger.debug('Save file closed.')
 
     # Parse buffer looking for messages
     def parse(self):
-        logging.debug('in UbloxReader.parse()')
+        self.logger.debug('in UbloxReader.parse()')
         if len(self.buffer) < 8:
-            logging.debug('UbloxReader.parse(): not enough data in buffer')
+            self.logger.debug('UbloxReader.parse(): not enough data in buffer')
             return
         index = self.buffer.find(b'\xb5\x62')
         if index >= 0:
             self.start += index
             msgTime = time.time()
-            logging.debug('UbloxReader.parse(): sending for validation')
+            self.logger.debug('UbloxReader.parse(): sending for validation')
             result = UbloxMessage.validate(self.buffer[self.start:])
             if result['valid']:
                 rawMessage = self.buffer[self.start:]
-                logging.debug('UbloxReader.parse(): sending to UbloxMessage.parse()')
+                self.logger.debug('UbloxReader.parse(): sending to UbloxMessage.parse()')
                 msgFormat, msgData, remainder = UbloxMessage.parse(rawMessage)
                 rawMessage = rawMessage[:len(rawMessage) - len(remainder)] if remainder is not None else rawMessage[:len(rawMessage)]
                 self.buffer = remainder if remainder is not None else b''
                 self.start = 0
                 if msgFormat is not None:
-                    logging.debug('UbloxReader.parse(): sending to UbloxReader.handleMessage()')
+                    self.logger.debug('UbloxReader.parse(): sending to UbloxReader.handleMessage()')
                     self.handleMessage(msgTime, msgFormat, msgData, rawMessage)
                     return
             else:
                 # Invalid message, move past sync bytes
                 if result['lengthMatch'] or (result['length'] > 4096):
                     if result['lengthMatch']:
-                        logging.debug('UbloxReader.parse(): invalid message in buffer, moving past sync')
+                        self.logger.debug('UbloxReader.parse(): invalid message in buffer, moving past sync')
                     else:
-                        logging.debug('UbloxReader.parse(): invalid length ({}) - enforcing max length of 4096 bytes'.format(result['length']))
+                        self.logger.debug('UbloxReader.parse(): invalid length ({}) - enforcing max length of 4096 bytes'.format(result['length']))
                     self.buffer = self.buffer[self.start+2:]
                     return
                 else:
-                    logging.debug('Ublox.parse(): Header indicates a message of length {}, buffer only has {} bytes'.format(result['length'], len(self.buffer)))
+                    self.logger.debug('Ublox.parse(): Header indicates a message of length {}, buffer only has {} bytes'.format(result['length'], len(self.buffer)))
                     return
         # Discard all but the last byte
         else:
-            logging.debug('UbloxReader.parse(): could not find sync in buffer, discarding all but the last byte')
+            self.logger.debug('UbloxReader.parse(): could not find sync in buffer, discarding all but the last byte')
             self.buffer = self.buffer[-1:]
             self.start = 0
             return
@@ -133,17 +134,17 @@ class UbloxReader(serial.threaded.Protocol):
                         self.saveFile.close()
                     dt = datetime.datetime(year, month, day, hour, minute, second)
                     filename = '{}_{}.{}'.format(self.saveFileName, dt.strftime('%Y%m%dT%H%M%SZ'), self.saveFormat)
-                    print('*** Opening save file {} for write'.format(filename))
+                    self.logger.info('*** Opening save file {} for write'.format(filename))
                     self.saveFile = open(filename, 'wb')
                     self.lastFlushTime = time.time()
         else:
             if self.saveFile is None:
                 filename = '{}_{}.{}'.format(self.saveFileName, datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%SZ'), self.saveFormat)
-                print('*** Opening save file {} for write'.format(filename))
+                self.logger.info('*** Opening save file {} for write'.format(filename))
                 self.saveFile = open(filename, 'wb')
                 self.lastFlushTime = time.time()
         if self.saveFormat == 'ubx' and self.saveFile is not None:
-            logging.debug('Saving {} message of raw length {}'.format(msgFormat, len(rawMessage)))
+            self.logger.debug('Saving {} message of raw length {}'.format(msgFormat, len(rawMessage)))
             self.saveFile.write(rawMessage)
             if (time.time() - self.lastFlushTime) > 60:
                 self.saveFile.flush()
@@ -155,14 +156,14 @@ class UbloxReader(serial.threaded.Protocol):
             self.pollResult = None
             self.pollTarget = [msgFormat]
 
-            logging.info('Polling for {} (attempt {})'.format(msgFormat, retries+1))
+            self.logger.info('Polling for {} (attempt {})'.format(msgFormat, retries+1))
             self.sendMessage(ser, msgFormat, length, data)
 
             startTime = time.time()
             while self.pollResult is None:
                 time.sleep(0.01)
                 if (time.time() - startTime) > timeout:
-                    logging.warn('Timeout waiting for response!')
+                    self.logger.warn('Timeout waiting for response!')
                     break
 
             if self.pollResult is not None:
@@ -178,19 +179,19 @@ class UbloxReader(serial.threaded.Protocol):
             self.pollResult = None
             self.pollTarget = ['ACK-ACK', 'ACK-NACK']
 
-            logging.info('Sending config message {} (attempt {})'.format(msgFormat, retries+1))
+            self.logger.info('Sending config message {} (attempt {})'.format(msgFormat, retries+1))
             self.sendMessage(ser, msgFormat, length, data)
 
             startTime = time.time()
             while self.pollResult is None:
                 time.sleep(0.01)
                 if (time.time() - startTime) > timeout:
-                    logging.warn('Timeout waiting for ACK')
+                    self.logger.warn('Timeout waiting for ACK')
                     break
 
             if self.pollResult is not None:
                 if self.checkAck(self.pollResult[0], self.pollResult[1], msgFormat):
-                    logging.info('Config message ACKed by ublox')
+                    self.logger.info('Config message ACKed by ublox')
                 return
 
             retries += 1
@@ -219,6 +220,7 @@ class UbloxReader(serial.threaded.Protocol):
             raise Exception('Invalid save interval!')
         self.saveInterval = interval
         self.curInterval = None
+
 
 
 if __name__=='__main__':

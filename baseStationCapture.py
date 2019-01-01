@@ -51,6 +51,7 @@ outputFile = None
 dataRate = None
 dataRateStartTime = None
 dataCaptured = 0
+logger = logging.getLogger()
 
 # port: 0=DDC(I2C), 1=UART1, 3=USB, 4=SPI
 def setMessageRate(ser, ublox, messageType, rate, port=None):
@@ -63,7 +64,7 @@ def setMessageRate(ser, ublox, messageType, rate, port=None):
         ublox.sendConfig(ser, msgFormat, 8, msgData)
 
 def messageHandler(msgTime, msgFormat, msgData, rawMessage):
-    global dataRate, dataRateStartTime, dataCaptured, timestamp, epoch, dt, offset, lat, lon, alt, speed, hAcc, vAcc, hdop, numSats, avgCNO, fix, timeValid, output, display, dataRate, msSinceStartup
+    global logger, dataRate, dataRateStartTime, dataCaptured, timestamp, epoch, dt, offset, lat, lon, alt, speed, hAcc, vAcc, hdop, numSats, avgCNO, fix, timeValid, output, display, dataRate, msSinceStartup
 
     curTimestamp = time.time()
 
@@ -134,8 +135,7 @@ def messageHandler(msgTime, msgFormat, msgData, rawMessage):
         displayString += ' | {:.1f} MPH'.format(speedMph)
         if dataRate is not None:
             displayString += ' | Data rate: {:.1f} Kbps'.format(dataRate/1000)
-        print(displayString)
-        logging.info(displayString)
+        logger.info(displayString)
     # if msgFormat in ['NAV-PVT', 'NAV-STATUS', 'NAV-SVINFO']:
     #     print(msgData)
 
@@ -155,38 +155,47 @@ if __name__=='__main__':
     else:
         logLevel = logging.INFO
 
-    logging.basicConfig(filename=args.logFile, level=logLevel, format='%(asctime)s %(message)s')
+    if args.logFile is not None:
+        handler = logging.FileHandler(args.logFile)
+    else:
+        handler = logging.StreamHandler()
 
-    logging.info('***** Session start *****')
+    formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.setLevel(logLevel)
+
+    logger.info('***** Session start *****')
 
     ser = serial.Serial(args.device, 921600, timeout=1)
     with serial.threaded.ReaderThread(ser, UbloxReader) as ublox:
         if args.output is not None:
             ublox.saveFileName = os.path.join(args.output, 'ublox')
+        ublox.logger = logger
         ublox.setSaveInterval(args.interval)
-        ublox.printMessageFlag = True
+        ublox.printMessageFlag = False
         ublox.userHandler = messageHandler
 
         if args.configure:
-            print('*** Configuring receiver...')
+            logger.info('*** Configuring receiver...')
             # Set measurement rate to 1 Hz during config to prevent problems
             print('Setting measurement rate to 1 Hz...')
             ublox.sendConfig(ser, 'CFG-RATE', 6, {'Meas': 1000, 'Nav': 1, 'Time': 1})
 
             # Reset to default config
             clearMask = UbloxMessage.buildMask(['msgConf'], clearMaskShiftDict)
-            print('Restoring message configuration...')
+            logger.info('Restoring message configuration...')
             ublox.sendConfig(ser, 'CFG-CFG', 12, {'clearMask': clearMask, 'saveMask': 0, 'loadMask': clearMask})
 
             # Set power management settings
-            print('Setting power management to full power...')
+            logger.info('Setting power management to full power...')
             ublox.sendConfig(ser, 'CFG-PMS', 8, {'Version': 0, 'PowerSetupValue': 0, 'Period': 0, 'OnTime': 0})            
             
             # Disable NMEA output - UBX only
-            print('Polling for port config (CFG-PRT)...')
+            logger.info('Polling for port config (CFG-PRT)...')
             msgFormat, msgData = ublox.poll(ser, 'CFG-PRT')
             UbloxMessage.printMessage(msgFormat, msgData)
-            print('Disabling NMEA output (CFG-PRT)...')
+            logger.info('Disabling NMEA output (CFG-PRT)...')
             msgData[1]["Out_proto_mask"] = 1
             ublox.sendConfig(ser, msgFormat, 20, msgData)
 
@@ -198,10 +207,10 @@ if __name__=='__main__':
                 setMessageRate(ser, ublox, message, rate)
             
             # Set measurement rate to 5 
-            print('Setting measurement rate to 5 Hz...')
+            logger.info('Setting measurement rate to 5 Hz...')
             ublox.sendConfig(ser, 'CFG-RATE', 6, {'Meas': 200, 'Nav': 5, 'Time': 1})
 
-            print('*** Configuration complete!')
+            logger.info('*** Configuration complete!')
 
 
         ublox.saveStreamFlag = True
