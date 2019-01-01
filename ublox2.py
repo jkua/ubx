@@ -73,7 +73,7 @@ class UbloxReader(serial.threaded.Protocol):
                     return
             else:
                 # Invalid message, move past sync bytes
-                if result['lengthMatch'] or (result['length'] > 4096):
+                if result['lengthMatch'] or ((result['length'] is not None) and (result['length'] > 4096)):
                     if result['lengthMatch']:
                         self.logger.debug('UbloxReader.parse(): invalid message in buffer, moving past sync')
                     else:
