@@ -51,6 +51,7 @@ outputFile = None
 dataRate = None
 dataRateStartTime = None
 dataCaptured = 0
+messageCount = {}
 logger = logging.getLogger()
 
 # port: 0=DDC(I2C), 1=UART1, 3=USB, 4=SPI
@@ -64,7 +65,7 @@ def setMessageRate(ser, ublox, messageType, rate, port=None):
         ublox.sendConfig(ser, msgFormat, 8, msgData)
 
 def messageHandler(msgTime, msgFormat, msgData, rawMessage):
-    global logger, dataRate, dataRateStartTime, dataCaptured, timestamp, epoch, dt, offset, lat, lon, alt, speed, hAcc, vAcc, hdop, numSats, avgCNO, fix, timeValid, output, display, dataRate, msSinceStartup
+    global logger, dataRate, dataRateStartTime, dataCaptured, timestamp, epoch, dt, offset, lat, lon, alt, speed, hAcc, vAcc, hdop, numSats, avgCNO, fix, timeValid, output, display, dataRate, msSinceStartup, messageCount
 
     curTimestamp = time.time()
 
@@ -79,7 +80,11 @@ def messageHandler(msgTime, msgFormat, msgData, rawMessage):
             dataCaptured = 0
             dataRateStartTime = curTime
 
-    logging.info(msgFormat)
+    # logging.info(msgFormat)
+
+    if msgFormat not in messageCount:
+        messageCount[msgFormat] = 0
+    messageCount[msgFormat] += 1
 
     if msgFormat == 'NAV-PVT':
         epoch = msgData[0]['ITOW']/1e3
@@ -118,6 +123,12 @@ def messageHandler(msgTime, msgFormat, msgData, rawMessage):
             avgCNO = 0
 
     elif msgFormat == 'NAV-STATUS':
+        # Display messages collected
+        countList = ['{}: {:2}'.format(key, value) for key, value in messageCount.items()]
+        countList.sort()
+        logger.info(', '.join(countList))
+        messageCount = {}
+
         # print('NAV-STATUS time: {:.3f}'.format(msgData[0]['ITOW']/1e3))
         fix = fixTypeDict[msgData[0]['GPSfix']]
         msSinceStartup = msgData[0]['MSSS']
@@ -136,6 +147,7 @@ def messageHandler(msgTime, msgFormat, msgData, rawMessage):
         if dataRate is not None:
             displayString += ' | Data rate: {:.1f} Kbps'.format(dataRate/1000)
         logger.info(displayString)
+
     # if msgFormat in ['NAV-PVT', 'NAV-STATUS', 'NAV-SVINFO']:
     #     print(msgData)
 
@@ -145,6 +157,7 @@ if __name__=='__main__':
     parser.add_argument('--device', '-d', default='/dev/ttyHS1', help='Specify the serial port device to communicate with. e.g. /dev/ttyO5')
     parser.add_argument('--output', '-o', help='Specify output path')
     parser.add_argument('--configure', '-c', action='store_true', help='Configure the receiver')
+    parser.add_argument('--measurementRate', '-m', type=int, choices=[1, 2, 5, 10], default=5, help='Specify the GNSS measurement rate')
     parser.add_argument('--interval', '-i', choices=['daily', 'hourly'], default=None, help='Specify file interval (daily, hourly)')
     parser.add_argument('--logFile', '-l', help='Path to log file')
     parser.add_argument('--debug', action='store_true')
@@ -179,7 +192,7 @@ if __name__=='__main__':
         if args.configure:
             logger.info('*** Configuring receiver...')
             # Set measurement rate to 1 Hz during config to prevent problems
-            print('Setting measurement rate to 1 Hz...')
+            logger.info('Setting measurement rate to 1 Hz...')
             ublox.sendConfig(ser, 'CFG-RATE', 6, {'Meas': 1000, 'Nav': 1, 'Time': 1})
 
             # Reset to default config
@@ -206,9 +219,11 @@ if __name__=='__main__':
                 print('Enabling {} message...'.format(message))
                 setMessageRate(ser, ublox, message, rate)
             
-            # Set measurement rate to 5 
-            logger.info('Setting measurement rate to 5 Hz...')
-            ublox.sendConfig(ser, 'CFG-RATE', 6, {'Meas': 200, 'Nav': 5, 'Time': 1})
+            # Set measurement rate to desired
+            logger.info('Setting measurement rate to {} Hz...'.format(args.measurementRate))
+            measurementInterval = int(1./args.measurementRate*1000)
+            navRate = args.measurementRate
+            ublox.sendConfig(ser, 'CFG-RATE', 6, {'Meas': measurementInterval, 'Nav': navRate, 'Time': 1})
 
             logger.info('*** Configuration complete!')
 

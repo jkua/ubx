@@ -522,14 +522,11 @@ class UbloxMessage(object):
         else:
             remainder = None
 
-        if length == 0:
-            logging.warning('Zero length packet of class {}, id {}!'.format(hex(msgClass), hex(msgId)))
-        else:
-            # Decode UBX message
-            try:
-                msgFormat, msgData = UbloxMessage.decode(msgClass, msgId, length, message[6:length+6])
-            except ValueError:
-                return None, None, remainder
+        # Decode UBX message
+        try:
+            msgFormat, msgData = UbloxMessage.decode(msgClass, msgId, length, message[6:length+6])
+        except ValueError:
+            return None, None, remainder
 
         return msgFormat, msgData, remainder
 
@@ -584,7 +581,7 @@ class UbloxMessage(object):
                 fmt_rep = msgFormat[3:]
                 # Check if the length matches
                 if (length - fmt_base[0])%fmt_rep[0] != 0:
-                    logging.error( "Variable length message class 0x%x, id 0x%x \
+                    logging.warning( "Variable length message class 0x%x, id 0x%x \
                         has wrong length %i" % ( cl, id, length ) )
                     raise ValueError( "Variable length message class 0x%x, id 0x%x \
                         has wrong length %i" % ( cl, id, length ) )
@@ -594,8 +591,8 @@ class UbloxMessage(object):
                     data.append(dict(zip(fmt_rep[2], struct.unpack(fmt_rep[1], payload[offset:offset+fmt_rep[0]]))))
 
             except KeyError:
-                logging.info( "Unknown message class 0x%x, id 0x%x, length %i" % ( cl, id, length ) )
-                raise ValueError( "Unknown message class 0x%x, id 0x%x, length %i" % ( cl, id, length ) )
+                logging.warning( "Don't know how to parse message class 0x%x, id 0x%x, length %i" % ( cl, id, length ) )
+                raise ValueError( "Don't know how to parse message class 0x%x, id 0x%x, length %i" % ( cl, id, length ) )
 
         return msgFormat[-1], data
 
