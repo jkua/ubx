@@ -2,6 +2,7 @@
 
 from smbus2 import SMBusWrapper
 from ubloxI2c import UbloxI2C
+import ubloxMessage
 from ubloxMessage import UbloxMessage
 import logging
 import time
@@ -9,10 +10,10 @@ import time
 if __name__=='__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('navRate', type=int)
     parser.add_argument('--bus', '-b', type=int, default=11, help='I2C bus number')
     parser.add_argument('--startType', choices=['hot', 'warm', 'cold'], default='cold', help='Specify the start type. This controls what data is cleared. Use the \'clear\' option to specify individual sections to clear.')
-    parser.add_argument('--clear', '-c', choices=ubx.navBbrMaskShiftDict.keys() + ['all', 'none'], nargs='+', default=None, help='Specify the data structures to clear. This overrides \'startType\'.')
+    parser.add_argument('--clear', '-c', choices=list(ubloxMessage.navBbrMaskShiftDict.keys()) + ['all', 'none'], nargs='+', default=None, help='Specify the data structures to clear. This overrides \'startType\'.')
+    parser.add_argument('--mode', '-m', choices=ubloxMessage.resetModeDict.keys(), default='hw', help='Specify the restart mode.\nsw: Controlled software reset\nswGnssOnly: Controlled software reset (GNSS Only)\nhw: Hardware reset (Watchdog) immediately\nhwShutdown: Hardware reset (Watchdog) after shutdown\ngnssStop: Controlled GNSS stop\ngnssStart: Controlled GNSS start')
 
     args = parser.parse_args()
 
@@ -29,10 +30,12 @@ if __name__=='__main__':
     else:
         navBbrMask = UbloxMessage.buildMask(args.clear, UbloxMessage.navBbrMaskShiftDict)
 
-    resetMode = UbloxMessage.resetModeDict[args.mode]
+    resetMode = ubloxMessage.resetModeDict[args.mode]
 
     with SMBusWrapper(args.bus) as bus:
         ublox = UbloxI2C(bus)
+
+        data = ublox.poll('MON-VER', printMessage=True)
 
         print('\nSending reset...')  
         ublox.sendConfig("CFG-RST", 4, {'nav_bbr': navBbrMask, 'Reset': resetMode})
