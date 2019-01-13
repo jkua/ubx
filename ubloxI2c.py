@@ -115,8 +115,10 @@ class UbloxI2C(object):
         rawMessage = UbloxMessage.buildMessage(messageType, length, data)
         self.sendRawMessage(message)
 
-    def sendRawMessage(self, rawMessage):
-        self.bus.write_i2c_block_data(self.deviceAddress, 0xff, rawMessage)
+    def sendRawMessage(self, rawMessage, chunkSize=32):
+        while len(rawMessage) > 0:
+            self.bus.write_i2c_block_data(self.deviceAddress, 0xff, rawMessage[:chunkSize])
+            rawMessage = [chunkSize:]
 
     def receiveMessage(self, timeout=1):
         bytesAvailable = self.waitForMessage(timeout=timeout)
