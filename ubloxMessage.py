@@ -101,6 +101,7 @@ CLIDPAIR = {
     "NAV-POSUTM" : (0x01, 0x08),
     "NAV-PVT" : (0x01, 0x07),
     "NAV-RELPOSNED" : (0x01, 0x3c),
+    "NAV-SAT" : (0x01, 0x35),
     "NAV-SBAS" : (0x01, 0x32),
     "NAV-SOL" : (0x01, 0x06),
     "NAV-STATUS" : (0x01, 0x03),
@@ -209,6 +210,8 @@ MSGFMT = {
         ["<IIiHBBBBBB", ["ITOW", "TAcc", "Nano", "Year", "Month", "Day", "Hour", "Min", "Sec", "Valid"]],
     ("NAV-CLOCK",  20) :
         ["<IiiII", ["ITOW", "CLKB", "CLKD", "TAcc", "FAcc"]],
+    ("NAV-SAT", None) :
+        [8, "<IBBxx", ["ITOW", "Version", "NumSv"], 12, "<BBBbhhI", ["GNSSID", "SVID", "CNO", "Elev", "Azim", "PRRes", "Flags"]],
     ("NAV-SVINFO", None) :
         [8, "<IBxxx", ["ITOW", "NCH"], 12, "<BBBbBbhi", ["chn", "SVID", "Flags", "QI", "CNO", "Elev", "Azim", "PRRes"]],
     ("NAV-DGPS", None) :
@@ -764,6 +767,22 @@ class UbloxMessage(object):
             print('    Heading accuracy:   {:.5f} deg'.format(data[0]['HeadAcc']/1e5))
             print('    Magnetic declination: {:.2f} deg'.format(data[0]['MagDec']/1e2))
             print('    Magnetic accuracy:    {:.2f} deg'.format(data[0]['MagAcc']/1e2))
+        elif messageType == 'NAV-SAT':
+            print('    ITOW: {}'.format(data[0]['ITOW']))
+            print('    Num Sats: {}'.format(data[0]['NumSv']))
+            usedSats = []
+            usedCnoValues = []
+            for sat in data[1:]:
+                if sat['Flags'] & 8 and sat['GNSSID'] in GNSSID_INV:
+                    usedSats.append(sat)
+                    usedCnoValues.append(sat['CNO'])
+            print('    Num Used Sats: {}'.format(len(usedSats)))
+            print('    Average C/No: {:.1f}'.format(sum(usedCnoValues)/float(len(usedCnoValues))))
+            print('')
+            for i, sat in enumerate(usedSats, 1):
+                outputString = '    {}) {} {}'.format(i, GNSSID_INV[sat['GNSSID']], sat['SVID'])
+                outputString += ' | C/No: {:.1f}, Elevation: {} deg, Azimuth: {} deg, Pseudorange residual: {:.1f} m'.format(sat['CNO'], sat['Elev'], sat['Azim'], sat['PRRes']*0.1)
+                print(outputString)
 
         elif messageType == 'NAV-STATUS':
             print('    ITOW: {}'.format(data[0]['ITOW']))

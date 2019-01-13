@@ -61,13 +61,16 @@ class UbloxI2C(object):
         logging.info('Sending restart command... this will not be ACKed.')
         self.sendMessage("CFG-RST", 4, {'nav_bbr': navBbrMask, 'Reset': resetMode})
 
-    def poll(self, messageType, length=0, data=[], printMessage=False):
+    def poll(self, messageType, length=0, data=[], printMessage=False, timeout=1, delay=0):
         logging.info('Polling for {}...'.format(messageType))
 
         self.clearReceiveBuffer()
         self.sendMessage(messageType, length, data)
 
-        msgType, data, remainder = self.receiveMessage()
+        if delay > 0:
+            time.sleep(delay)
+
+        msgType, data, remainder = self.receiveMessage(timeout=timeout)
 
         if msgType != messageType:
             raise Exception('Response was of a different type! Got {} instead of {}!'.format(msgType, messageType))
