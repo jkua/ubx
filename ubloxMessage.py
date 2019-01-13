@@ -497,7 +497,7 @@ class UbloxMessage(object):
         return None, None, None, None, start
 
     @staticmethod
-    def parse(message):
+    def parse(message, raw=False):
         message = bytearray(message)
 
         # Validate message
@@ -522,11 +522,21 @@ class UbloxMessage(object):
         else:
             remainder = None
 
-        # Decode UBX message
-        try:
-            msgFormat, msgData = UbloxMessage.decode(msgClass, msgId, length, message[6:length+6])
-        except ValueError:
-            return None, None, remainder
+        if raw:
+            # Just figure out the format and return the raw message
+            try:
+                fullMsgFormat, fmt_base, fmt_rep = UbloxMessage.getMessageFormat(msgClass, msgId, length)
+                msgFormat = fullMsgFormat[-1]
+            except KeyError:
+                msgFormat = 'UNKNOWN-0x{:02x}-0x{:02x}'.format(msgClass, msgId)
+            msgData = message
+
+        else:
+            # Decode UBX message
+            try:
+                msgFormat, msgData = UbloxMessage.decode(msgClass, msgId, length, message[6:length+6])
+            except ValueError:
+                return None, None, remainder
 
         return msgFormat, msgData, remainder
 
@@ -568,31 +578,44 @@ class UbloxMessage(object):
         return result
 
     @staticmethod
-    def decode(cl, id, length, payload):
-        data = []
+    def getMessageFormat(cl, id, length):
+        # This will raise a KeyError if it cannot determine the format
         try:
             msgFormat = MSGFMT_INV[((cl, id), length)]
-            data.append(dict(zip(msgFormat[1], struct.unpack(msgFormat[0], payload))))
+            fmt_base = None
+            fmt_rep = None
         except KeyError:
-            try:
-                # Try if this is one of the variable field messages
-                msgFormat = MSGFMT_INV[((cl, id), None)]
-                fmt_base = msgFormat[:3]
-                fmt_rep = msgFormat[3:]
-                # Check if the length matches
-                if (length - fmt_base[0])%fmt_rep[0] != 0:
-                    logging.warning( "Variable length message class 0x%x, id 0x%x \
-                        has wrong length %i" % ( cl, id, length ) )
-                    raise ValueError( "Variable length message class 0x%x, id 0x%x \
-                        has wrong length %i" % ( cl, id, length ) )
+            # Try if this is one of the variable field messages
+            msgFormat = MSGFMT_INV[((cl, id), None)]
+            fmt_base = msgFormat[:3]
+            fmt_rep = msgFormat[3:]
+            # Check if the length matches
+            if (length - fmt_base[0])%fmt_rep[0] != 0:
+                logging.warning( "Variable length message class 0x%x, id 0x%x \
+                    has wrong length %i" % ( cl, id, length ) )
+                raise ValueError( "Variable length message class 0x%x, id 0x%x \
+                    has wrong length %i" % ( cl, id, length ) )
+
+        return msgFormat, fmt_base, fmt_rep
+
+    @staticmethod
+    def decode(cl, id, length, payload):
+        data = []
+
+        try:
+            msgFormat, fmt_base, fmt_rep = UbloxMessage.getMessageFormat(cl, id, length)
+
+            if fmt_base is None:
+                data.append(dict(zip(msgFormat[1], struct.unpack(msgFormat[0], payload))))
+            else:
                 data.append(dict(zip(fmt_base[2], struct.unpack(fmt_base[1], payload[:fmt_base[0]]))))
                 for i in range(0, (length - fmt_base[0])//fmt_rep[0]):
                     offset = fmt_base[0] + fmt_rep[0] * i
                     data.append(dict(zip(fmt_rep[2], struct.unpack(fmt_rep[1], payload[offset:offset+fmt_rep[0]]))))
 
-            except KeyError:
-                logging.warning( "Don't know how to parse message class 0x%x, id 0x%x, length %i" % ( cl, id, length ) )
-                raise ValueError( "Don't know how to parse message class 0x%x, id 0x%x, length %i" % ( cl, id, length ) )
+        except KeyError:
+            logging.warning( "Don't know how to parse message class 0x%x, id 0x%x, length %i" % ( cl, id, length ) )
+            raise ValueError( "Don't know how to parse message class 0x%x, id 0x%x, length %i" % ( cl, id, length ) )
 
         return msgFormat[-1], data
 

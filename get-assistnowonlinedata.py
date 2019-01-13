@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # Get AssistNow Online data
 # Valid for 2-4 hours
@@ -14,7 +14,8 @@
 # Token (Mapper - John Kua): kdIs4xBnwEivvK3aQJtY9g
 
 import requests
-import ubx
+import datetime
+import os
 
 validGnss = ['gps', 'qzss', 'glo', 'bds', 'gal']
 validDatatypes = ['eph', 'alm', 'aux', 'pos']
@@ -41,8 +42,6 @@ def getOnlineData(hostUrl, token, gnss=['gps', 'glo'], datatypes=['eph', 'alm', 
 
     return response.content
 
-def callback(ty, packet):
-    print("callback %s" % repr([ty, packet]))
 
 if __name__=='__main__':
     import argparse
@@ -50,33 +49,19 @@ if __name__=='__main__':
     parser.add_argument('--device', '-d', default=None)
     parser.add_argument('--hostUrl', '-H', default='https://online-live1.services.u-blox.com')
     parser.add_argument('--token', '-t', default='kdIs4xBnwEivvK3aQJtY9g')
+    parser.add_argument('--outputPath', '-o', default='.', help='Output path')
     args = parser.parse_args()
 
+    print('\nQuerying for AssistNow Online data...')
+    downloadDt = datetime.datetime.utcnow()
     data = getOnlineData(args.hostUrl, token='kdIs4xBnwEivvK3aQJtY9g')
-    print('Received ({}):\n{}'.format(len(data), data))
+    print('\nReceived {} bytes.'.format(len(data)))
 
-    import pdb; pdb.set_trace()
+    outputFileName = os.path.join(args.outputPath, 'assistNowOnline_{}.bin'.format(downloadDt.strftime('%Y%m%dT%H%M%SZ')))
+    print('\nSaving to {}'.format(outputFileName))
 
-    if args.device is not None:
-        t = ubx.Parser(callback, device=args.device)
-    else:
-        t = ubx.Parser(callback, device=None)
+    with open(outputFileName, 'wb') as f:
+        f.write(data)
 
-    t.parse(data)
-
-    messageCount = 0
-    while len(data) > 0:
-        data = t.seekToNextUbxMessage(data)
-        result = t.checkUbx(data)
-        print(result)
-        if result['sync'] == True:
-            data = data[result['length']:]
-            messageCount += 1
-        else:
-            print('Remaining buffer ({}): {}'.format(len(data), data))
-            break
-    print('Messages parsed: {}'.format(messageCount))
-
-    # Send CFG-NAVX5 to enable ackAiding?
-
-    # t.sendraw(data)
+    print('\nDone.')
+    
