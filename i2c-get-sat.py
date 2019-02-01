@@ -20,7 +20,7 @@ if __name__=='__main__':
 
         while True:
             try:
-                data = ublox.poll('NAV-SAT', printMessage=False, timeout=5, delay=0.5)
+                data = ublox.poll('NAV-SAT', printMessage=True, timeout=1, delay=0)
             except KeyboardInterrupt:
                 break
             
