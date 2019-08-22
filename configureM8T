@@ -2,7 +2,7 @@
 
 # Defaults
 DEVICE=/dev/ttyHS1
-RATE=115200
+RATE=9600
 PORT=1
 RESETCONFIG=0
 

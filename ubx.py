@@ -146,5 +146,7 @@ class Parser():
             if len(message) == 0:
                 continue
 
+            start = message.find(',')
+
             self.callback(message[:start], message)
 
