@@ -1,0 +1,142 @@
+#!/bin/bash
+
+# Defaults
+DEVICE=/dev/ttyHS1
+RATE=115200
+PORT=1
+RESETCONFIG=0
+
+show_help() {
+    echo
+    echo "Usage: configure -d DEVICE -r RATE"
+    echo 
+    echo "    -d DEVICE    Specify the device path. Defaults to /dev/ttyHSL2."
+    echo "                 On OS X with a USB connection, should be /dev/cu.usbmodem*"
+    echo "    -r RATE      Specify the baud rate. Should be 9600 or 115200."
+    echo "                 Defaults to 115200."
+    echo "    -R           Reset the ublox to defaults before configuring the outputs."
+    echo 
+}
+
+show_error() {
+    echo 
+    echo "***************************"
+    echo "* CONFIGURATION FAILED!!! *"
+    echo "***************************"
+    echo
+}
+
+OPTIND=1         # Reset in case getopts has been used previously in the shell.
+
+while getopts "h?d:r:R" opt; do
+    case "$opt" in
+    h|\?)
+        show_help
+        exit 0
+        ;;
+    d)  DEVICE=$OPTARG
+        ;;
+    r)  
+        RATE=$OPTARG
+        ;;
+    R)
+        RESETCONFIG=1
+        ;;
+    esac
+done
+
+if [ ! -e $DEVICE ]; then
+    echo 
+    echo "*** ${DEVICE} does not exist!"
+    echo 
+    exit 1
+fi
+
+if [ ! -c $DEVICE ]; then
+    echo 
+    echo "*** ${DEVICE} is not a character device!"
+    echo 
+    exit 1
+fi
+
+if [[ $DEVICE = *"usbmodem"* ]]; then
+  PORT=3
+fi
+
+case "$RATE" in
+    9600) ;;
+    115200) ;;
+    *) 
+        echo 
+        echo "*** Invalid baud rate!"
+        show_help
+        exit 1
+        ;;
+esac
+
+stty -F $DEVICE $RATE
+
+# Reset configuration
+if [ $RESETCONFIG -eq 1 ]
+then
+    # Reset to defaults
+    ./load-defaultconfiguration.py msgConf --device $DEVICE
+    if [ $? -eq 1 ]
+    then
+        show_error
+        exit 1
+    fi
+
+    # Set full power mode (CFG-PMS)
+    ./set-powermode.py --device $DEVICE --mode fullPower
+
+
+    # Set GNSS measurement rate (1Hz)
+    ./set-logging-rate.py --device $DEVICE 1000 --navRate 1 --timeRef utc
+    if [ $? -eq 1 ]
+    then
+        show_error
+        exit 1
+    fi
+fi
+
+# Disable all NMEA messages
+./set-nmea.py --device $DEVICE 0
+if [ $? -eq 1 ]
+then
+    show_error
+    exit 1
+fi
+
+# Enable desired messages
+./getset-messagerate.py --device $DEVICE --name NAV-PVT --setRate 1 --port $PORT
+if [ $? -eq 1 ]
+then
+    show_error
+    exit 1
+fi
+
+./getset-messagerate.py --device $DEVICE --name NAV-DOP --setRate 1 --port $PORT
+if [ $? -eq 1 ]
+then
+    show_error
+    exit 1
+fi
+
+./getset-messagerate.py --device $DEVICE --name NAV-STATUS --setRate 1 --port $PORT
+if [ $? -eq 1 ]
+then
+    show_error
+    exit 1
+fi
+
+./getset-messagerate.py --device $DEVICE --name NAV-SVINFO --setRate 1 --port $PORT
+if [ $? -eq 1 ]
+then
+    show_error
+    exit 1
+fi
+
+echo
+echo "*** ublox configuration complete"
+echo
