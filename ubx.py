@@ -16,7 +16,7 @@ import logging
 import sys
 import socket
 import time
-from ubloxMessage import UbloxMessage, SYNC1, SYNC2
+from ubloxMessage import UbloxMessage, SYNC1, SYNC2, clearMaskShiftDict, navBbrMaskShiftDict, resetModeDict, powerSetupValueDict, timeRefDict
 
 class Parser():
     def __init__(self, callback, rawCallback=None, device="/dev/ttyO5"):

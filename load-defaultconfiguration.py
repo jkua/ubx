@@ -32,7 +32,7 @@ import logging
 import sys
 import socket
 import time
-from ubx import clearMaskShiftDict, buildMask
+from ubloxMessage import UbloxMessage, clearMaskShiftDict
 
 loop = gobject.MainLoop()
 state = 0
@@ -67,7 +67,7 @@ if __name__=='__main__':
         t = ubx.Parser(callback, device=args.device)
     else:
         t = ubx.Parser(callback)
-    clearMask = buildMask(args.settings, clearMaskShiftDict)
+    clearMask = UbloxMessage.buildMask(args.settings, clearMaskShiftDict)
 
     print('Restoring default configuration...')
     t.send("CFG-CFG", 12, {'clearMask': clearMask, 'saveMask': 0, 'loadMask': clearMask})

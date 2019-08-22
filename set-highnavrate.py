@@ -41,6 +41,9 @@ def callback(ty, packet):
     if ty == "ACK-ACK":
         print('\nHigh Nav Rate successfully set!')
         loop.quit()
+    elif ty == "ACK-NACK":
+        print('\n*** High Nav Rate setting NACKed - not understood!')
+        import sys; sys.exit(1)
     else:
         elapsed = time.time() - lastStateTransitionTime
         if elapsed > 1:
@@ -54,7 +57,7 @@ if __name__ == "__main__":
     parser.add_argument('rate', default=1, type=int)
     args = parser.parse_args()
     
-    logging.basicConfig(level=logging.ERROR)
+    logging.basicConfig(level=logging.DEBUG)
 
     assert args.rate >= 0 and args.rate <= 30
     if args.device is not None:

@@ -631,7 +631,11 @@ class UbloxMessage(object):
                 fmt_rep = [0, "", []]
                 payload_base = payload
             except KeyError:
-                format = MSGFMT[(clid, None)]
+                try:
+                    format = MSGFMT[(clid, None)]
+                except KeyError:
+                    print('*** Attemping to build a {} message of length {}!'.format(clid, length))
+                    raise
                 fmt_base = format[:3]
                 fmt_rep = format[3:]
                 payload_base = payload[0]

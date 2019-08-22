@@ -61,7 +61,7 @@ if __name__ == "__main__":
     args.timeRef = ubx.timeRefDict[args.timeRef]
 
     assert args.measRate >= 50 and args.measRate <= 10000
-    assert args.navRate > 1 and args.navRate <=127
+    assert args.navRate >= 1 and args.navRate <=127
 
     if args.device is not None:
         t = ubx.Parser(callback, device=args.device)

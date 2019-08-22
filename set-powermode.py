@@ -99,6 +99,6 @@ if __name__ == "__main__":
         t = ubx.Parser(callback, device=args.device)
     else:
         t = ubx.Parser(callback)
-    t.send("CFG-PMS", 4, {'Version': 0, 'PowerSetupValue': mode, 'Period': args.period, 'OnTime': args.onTime})
+    t.send("CFG-PMS", 8, {'Version': 0, 'PowerSetupValue': mode, 'Period': args.period, 'OnTime': args.onTime})
     lastStateTransitionTime = time.time()
     loop.run()
