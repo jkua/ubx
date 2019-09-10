@@ -73,7 +73,7 @@ def callback(ty, packet):
         minute = packet[0]['Min']
         second = packet[0]['Sec']
         nano = packet[0]['Nano']
-        dt = datetime.datetime(year, month, day, hour, minute, second, int(nano/1000.))
+        dt = datetime.datetime(year, month, day, hour, minute, second) + datetime.timedelta(microseconds=nano/1000.)
         timestamp = calendar.timegm(dt.timetuple())
         timeValid = packet[0]['Valid'] & 0x7
         timeValidSymbol = timeValidSymbolDict[timeValid]
