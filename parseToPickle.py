@@ -33,6 +33,7 @@ import calendar
 
 from stream import fixTypeDict, fusionModeDict, timeValidDict, timeValidSymbolDict
 
+dt = None
 timestamp = 0
 lat = 0
 lon = 0
@@ -56,9 +57,11 @@ dataProcessed = 0
 
 
 def callback(ty, packet):
-    global timestamp, lat, lon, alt, speed, roll, pitch, heading, hdop, numSats, avgCNO, fix, fusionMode, output, dataProcessed, dataRate, dataSize
+    global dt, timestamp, lat, lon, alt, speed, roll, pitch, heading, hdop, numSats, avgCNO, fix, fusionMode, output, dataProcessed, dataRate, dataSize
 
     if output is not None:
+        packet[0]['lastPvtDt'] = dt
+
         if ty not in output:
             output[ty] = []
         output[ty].append(packet)
@@ -102,6 +105,16 @@ def callback(ty, packet):
             if dataRate is not None:
                 displayString += ', Rate: {:.1f} KB/s'.format(dataRate/1000.)
             print(displayString)
+
+    elif ty == 'NAV-PVT':
+        year = packet[0]['Year']
+        month = packet[0]['Month']
+        day = packet[0]['Day']
+        hour = packet[0]['Hour']
+        minute = packet[0]['Min']
+        second = packet[0]['Sec']
+        nano = packet[0]['Nano']
+        dt = datetime.datetime(year, month, day, hour, minute, second) + datetime.timedelta(microseconds=nano/1000.)
 
     elif ty == 'NAV-ATT':
         roll = packet[0]['Roll']/1e5

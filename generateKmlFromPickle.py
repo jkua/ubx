@@ -17,14 +17,17 @@ if __name__=='__main__':
     parser.add_argument('--plot', '-p', action='store_true', help='Show plots')
     parser.add_argument('--kml', '-k', help='Filename for KML generation')
     parser.add_argument('--resample', '-r', type=int, help='Resample points - 0 for no resample.')
+    parser.add_argument('--nav', '-n', action='store_true', help='Use NAV-PVT instead of HNR-PVT')
     args = parser.parse_args()
 
-    data = pickle.load(open(args.input, 'rb'))
+    data = pickle.load(open(args.input, 'rb'), encoding='latin1')
     timestamps = []
     latitude = []
     longitude = []
 
-    for packet in data['HNR-PVT']:
+    navMessageType = 'NAV-PVT' if args.nav else 'HNR-PVT'
+
+    for packet in data[navMessageType]:
         # timestamp = packet[0]['ITOW']/1e3
         year = packet[0]['Year']
         month = packet[0]['Month']
@@ -33,7 +36,7 @@ if __name__=='__main__':
         minute = packet[0]['Min']
         second = packet[0]['Sec']
         nano = packet[0]['Nano']
-        dt = datetime.datetime(year, month, day, hour, minute, second, int(nano/1000))
+        dt = datetime.datetime(year, month, day, hour, minute, second) + datetime.timedelta(microseconds=nano/1000)
         timestamp = calendar.timegm(dt.timetuple())
 
 
