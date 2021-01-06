@@ -113,6 +113,7 @@ CLIDPAIR = {
     "NAV-VELNED" : (0x01, 0x12),
     "RXM-ALM" : (0x02, 0x30),
     "RXM-EPH" : (0x02, 0x31),
+    "RXM-RTCM" : (0x02, 0x32),
     "RXM-POSREQ" : (0x02, 0x40),
     "RXM-PMREQ" : (0x02, 0x41),
     "RXM-RAW" : (0x02, 0x10),
@@ -243,6 +244,8 @@ MSGFMT = {
         ["<" + "I"*10, ["SVID", "WEEK", "DWRD0", "DWRD1", "DWRD2", "DWRD3", "DWRD4", "DWRD5", "DWRD6", "DWRD7"]],
     ("RXM-EPH", 1) :
         ["<B", ["SVID"]],
+    ("RXM-RTCM", 8) :
+        ["<BBHHH", ["Version", "Flags", "SubType", "RefStation", "MsgType"]],
     ("RXM-EPH", 8) :
         ["<II", ["SVID", "HOW"]],
     ("RXM-EPH", 104) :
