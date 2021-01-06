@@ -12,7 +12,6 @@ from ubloxMessage import UbloxMessage, CLIDPAIR
 if __name__=='__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('messageType', choices=CLIDPAIR.keys())
     parser.add_argument('--device', '-d', default='/dev/ttyHS1', help='Specify the serial port device to communicate with. e.g. /dev/ttyO5')
     parser.add_argument('--loop', '-l', action='store_true', help='Keep sending requests in a loop')
     parser.add_argument('--verbose', '-v', action='store_true')
@@ -31,11 +30,11 @@ if __name__=='__main__':
     with serial.threaded.ReaderThread(ser, UbloxReader) as protocol:
         try:
             while True:
-                msgFormat, msgData = protocol.poll(ser, args.messageType)
+                msgFormat, msgData = protocol.poll(ser, 'NAV-SVINFO')
                 UbloxMessage.printMessage(msgFormat, msgData, header=datetime.datetime.now().strftime('[%Y-%m-%d %H:%M:%S.%f]\n'))
                 if not args.loop:
                     break
-                time.sleep(0.1)
+                time.sleep(1)
 
         except KeyboardInterrupt:
             pass

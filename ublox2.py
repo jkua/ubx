@@ -22,9 +22,12 @@ class UbloxReader(serial.threaded.Protocol):
         self.saveFormat = 'ubx'
         self.saveFile = None
         self.saveFileName = 'ublox'
-        self.userHandler = None
+        # self.userHandler = None
         self.lastFlushTime = None
         self.logger = logging
+
+    def userHandler(self, msgTime, msgFormat, msgData, rawMessage):
+        pass
 
     # Required for serial.threaded.Protocol
     def connection_made(self, transport):

@@ -465,6 +465,23 @@ PORTID = {'I2C': 0,
 
 PORTID_INV = dict( [(v,k) for k, v in PORTID.items()] )
 
+qualityIndDict = {0: 'NoSignal',
+                  1: 'SearchingSignal',
+                  2: 'SignalAcquired',
+                  3: 'SignalDetectedByUnusable',
+                  4: 'CodeLockedAndTimeSynchronized',
+                  5: 'CodeAndCarrierLockedAndTimeSynchronized',
+                  6: 'CodeAndCarrierLockedAndTimeSynchronized',
+                  7: 'CodeAndCarrierLockedAndTimeSynchronized'
+                  }
+
+fixDict = {0: 'NoFix',
+           1: 'DeadReckoningOnly',
+           2: '2D',
+           3: '3D',
+           4: 'GNSS+DeadReckoningCombined',
+           5: 'TimeOnly'}
+
 
 class UbloxMessage(object):
     def __init__(self):
@@ -508,7 +525,6 @@ class UbloxMessage(object):
         msgClass = result['class']
         msgId = result['id']
         length = result['length']
-
         if not result['valid']:
             if not result['sync']:
                 raise ValueError('Invalid sync bytes!')
@@ -717,6 +733,25 @@ class UbloxMessage(object):
         return mask
 
     @staticmethod
+    def getGnssIdFromSvId(svid):
+        if svid >= 1 and svid <= 32:
+            return 'GPS'
+        elif svid >= 120 and svid <= 158:
+            return 'SBAS'
+        elif svid >= 211 and svid <= 246:
+            return 'Galileo'
+        elif (svid >= 33 and svid <= 64) or (svid >= 159 and svid <= 163):
+            return 'BeiDou'
+        elif svid >= 173 and svid <= 182:
+            return 'IMES'
+        elif svid >= 193 and svid <= 197:
+            return 'QZSS'
+        elif (svid >= 65 and svid <= 96) or svid == 255:
+            return 'GLONASS'
+        else:
+            return 'UNKNOWN'
+
+    @staticmethod
     def printMessage(messageType, data, messageTime=None, header=None, fmt='long'):
         if fmt == 'short':
             output = ''
@@ -754,7 +789,7 @@ class UbloxMessage(object):
             print('        Seconds: {}, Nano: {}'.format(data[0]['Sec'], data[0]['Nano']))
             print('    Valid: 0x{:02x}'.format(data[0]['Valid']))
             print('    Time accuracy: {} ns'.format(data[0]['TAcc']))
-            print('    Fix type: {}'.format(data[0]['FixType']))
+            print('    Fix type: {}'.format(fixDict[data[0]['FixType']]))
             print('    Flags:  0x{:02x}'.format(data[0]['Flags']))
             print('    Flags2: 0x{:02x}'.format(data[0]['Flags2']))
             print('    NumSV: {}'.format(data[0]['NumSV']))
@@ -781,11 +816,39 @@ class UbloxMessage(object):
                     usedSats.append(sat)
                     usedCnoValues.append(sat['CNO'])
             print('    Num Used Sats: {}'.format(len(usedSats)))
-            print('    Average C/No: {:.1f}'.format(sum(usedCnoValues)/float(len(usedCnoValues))))
+            avgCno = sum(usedCnoValues)/float(len(usedCnoValues)) if len(usedSats) else 0
+            print('    Average C/No: {:.1f}'.format(avgCno))
             print('')
             for i, sat in enumerate(usedSats, 1):
                 outputString = '    {}) {} {}'.format(i, GNSSID_INV[sat['GNSSID']], sat['SVID'])
                 outputString += ' | C/No: {:.1f}, Elevation: {} deg, Azimuth: {} deg, Pseudorange residual: {:.1f} m'.format(sat['CNO'], sat['Elev'], sat['Azim'], sat['PRRes']*0.1)
+                print(outputString)
+        elif messageType == 'NAV-SVINFO':
+            print('    ITOW: {}'.format(data[0]['ITOW']))
+            print('    Num Channels: {}'.format(data[0]['NCH']))
+            usedSats = []
+            unusedSats = []
+            usedCnoValues = []
+            for sat in data[1:]:
+                if sat['Flags'] & 1:
+                    usedSats.append(sat)
+                    usedCnoValues.append(sat['CNO'])
+                else:
+                    unusedSats.append(sat)
+            print('    Num Used Sats: {}, unused: {}'.format(len(usedSats), len(unusedSats)))
+            avgCno = sum(usedCnoValues)/float(len(usedCnoValues)) if len(usedSats) else 0
+            print('    Average C/No: {:.1f}'.format(avgCno))
+            print('')
+            print('Used sats:')
+            for i, sat in enumerate(usedSats, 1):
+                outputString = '    {:2}) {:>7} {:3}'.format(i, UbloxMessage.getGnssIdFromSvId(sat['SVID']), sat['SVID'])
+                outputString += ' | C/No: {:2.1f}, Az: {:3} deg, El: {:3} deg, PR residual: {:6.1f} m, Status: {}'.format(sat['CNO'], sat['Azim'], sat['Elev'], sat['PRRes']*0.1, qualityIndDict[sat['QI']])
+                print(outputString)
+
+            print('\nUnused sats:')
+            for i, sat in enumerate(unusedSats, 1):
+                outputString = '    {:2}) {:>7} {:3}'.format(i, UbloxMessage.getGnssIdFromSvId(sat['SVID']), sat['SVID'])
+                outputString += ' | C/No: {:4.1f}, Az: {:3} deg, El: {:3} deg, PR residual: {:6.1f} m, Status: {}'.format(sat['CNO'], sat['Azim'], sat['Elev'], sat['PRRes']*0.1, qualityIndDict[sat['QI']])
                 print(outputString)
 
         elif messageType == 'NAV-STATUS':

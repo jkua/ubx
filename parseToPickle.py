@@ -33,6 +33,7 @@ import calendar
 
 from stream import fixTypeDict, fusionModeDict, timeValidDict, timeValidSymbolDict
 
+dt = None
 timestamp = 0
 lat = 0
 lon = 0
@@ -56,7 +57,7 @@ dataProcessed = 0
 
 
 def callback(ty, packet):
-    global timestamp, lat, lon, alt, speed, roll, pitch, heading, hdop, numSats, avgCNO, fix, fusionMode, output, dataProcessed, dataRate, dataSize
+    global dt, timestamp, lat, lon, alt, speed, roll, pitch, heading, hdop, numSats, avgCNO, fix, fusionMode, output, dataProcessed, dataRate, dataSize
 
     if output is not None:
         if ty not in output:
@@ -102,6 +103,12 @@ def callback(ty, packet):
             if dataRate is not None:
                 displayString += ', Rate: {:.1f} KB/s'.format(dataRate/1000.)
             print(displayString)
+
+    # elif ty == 'NAV-PVT':
+    #     if dt is not None and dt > datetime.datetime(2019, 11, 8, 22, 49, 50):
+    #         logging.basicConfig(level=logging.DEBUG)
+    #         print('NAV-PVT - ITOW: {}'.format(packet[0]['ITOW']))
+    #         import pdb; pdb.set_trace()
 
     elif ty == 'NAV-ATT':
         roll = packet[0]['Roll']/1e5

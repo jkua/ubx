@@ -218,6 +218,10 @@ if __name__=='__main__':
             for message, rate in messageList:
                 print('Enabling {} message...'.format(message))
                 setMessageRate(ser, ublox, message, rate)
+
+            # Configure constellations (CFG-GNSS)
+
+            # Configure automobile dynamics (CFG-NAV5)
             
             # Set measurement rate to desired
             logger.info('Setting measurement rate to {} Hz...'.format(args.measurementRate))
