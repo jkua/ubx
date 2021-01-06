@@ -1,6 +1,9 @@
 # u-blox GPS Configuration Scripts
 A set of Python scripts to change the configuration settings of u-blox GPS modules. 
 
+# IGNORE ALL DOCUMENTATION AFTER THIS SECTION!
+This library is very much in flux as things are partially ported to a newer Python 3 compatible library without gobject and instead using PySerial.
+
 ## Tested working utils with an M8N module:
 - getset-messagerate.py (CFG-MSG)
 - set-baudrate.py (CFG-PRT)
