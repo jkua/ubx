@@ -31,6 +31,7 @@ import time
 import datetime
 import calendar
 from gpsTimestamps import gpsWeekAndTow
+import ntpdshm
 
 fixTypeDict = {0: 'NO', 1: 'DR', 2: '2D', 3: '3D', 4: '3D+DR', 5: 'Time'}
 fusionModeDict = {0: 'INIT', 1: 'ON', 2: 'Suspended', 3: 'Disabled'}
@@ -72,6 +73,10 @@ outputFile = None
 dataRate = None
 dataRateStartTime = None
 dataCaptured = 0
+ntpd_shm = ntpdshm.NtpdShm(unit=0)
+ntpd_shm.mode = 0
+ntpd_shm.precision = -6
+ntpd_shm.leap = 0
 
 def callback(ty, packet):
     global timestamp, lat, lon, alt, speed, attTime, roll, pitch, heading, hdop, numSats, avgCNO, fix, fusionMode, output, display, dataRate, msSinceStartup
@@ -83,7 +88,7 @@ def callback(ty, packet):
 
     if ty == 'NAV-PVT':
         epoch = packet[0]['ITOW']/1e3
-        
+
         year = packet[0]['Year']
         month = packet[0]['Month']
         day = packet[0]['Day']
@@ -98,6 +103,11 @@ def callback(ty, packet):
         # timeValidSymbol = str(timeValid)
         offset = curTimestamp - timestamp
 
+        if timeValid == 7:
+            print('Updating NTP with timestamp: {}'.format(timestamp))
+            ntpd_shm.update(timestamp)
+        else:
+            print('Time not valid, not updating NTP')
         lat = packet[0]['LAT']/1e7
         lon = packet[0]['LON']/1e7
         alt = packet[0]['HEIGHT']/1e3
